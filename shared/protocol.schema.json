@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local/stackchan-ai-pet/turn-response.schema.json",
+  "title": "TurnResponse",
+  "type": "object",
+  "required": ["say", "expression", "motion", "duration_ms"],
+  "properties": {
+    "say": { "type": "string", "maxLength": 120 },
+    "expression": {
+      "type": "string",
+      "enum": ["neutral", "happy", "curious", "sleepy", "surprised", "sad", "thinking"]
+    },
+    "motion": {
+      "type": "string",
+      "enum": ["idle", "nod", "shake", "look_left", "look_right", "look_up", "bounce", "sleep"]
+    },
+    "duration_ms": { "type": "integer", "minimum": 500, "maximum": 30000 },
+    "audio_url": { "type": ["string", "null"], "maxLength": 500 },
+    "thought": { "type": "string" },
+    "saved_memories": { "type": "array" },
+    "recalled_memories": { "type": "array" }
+  }
+}

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stack-chan Web Simulator</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage" aria-label="虚拟设备">
+        <div class="top-bar">
+          <div>
+            <p class="eyebrow">Stack-chan</p>
+            <h1>Web 虚拟设备</h1>
+          </div>
+          <div class="health-pill" id="healthStatus">未连接</div>
+        </div>
+
+        <div class="device-wrap">
+          <div class="antenna"></div>
+          <div class="device motion-idle" id="device">
+            <div class="screen expression-neutral" id="face">
+              <div class="eye eye-left"></div>
+              <div class="eye eye-right"></div>
+              <div class="mouth"></div>
+            </div>
+            <div class="speaker-grid" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="servo-shadow"></div>
+        </div>
+
+        <div class="status-grid" aria-label="设备状态">
+          <div>
+            <span>表情</span>
+            <strong id="expressionLabel">neutral</strong>
+          </div>
+          <div>
+            <span>动作</span>
+            <strong id="motionLabel">idle</strong>
+          </div>
+          <div>
+            <span>时长</span>
+            <strong id="durationLabel">0 ms</strong>
+          </div>
+          <div>
+            <span>电量</span>
+            <strong id="batteryLabel">88%</strong>
+          </div>
+        </div>
+
+        <form class="composer" id="turnForm">
+          <textarea id="userText" rows="3" placeholder="对小栈说点什么"></textarea>
+          <button type="submit" id="sendButton">发送</button>
+        </form>
+      </section>
+
+      <section class="side-panel" aria-label="交互控制">
+        <div class="panel-section settings-section">
+          <div class="section-heading">
+            <h2>连接</h2>
+            <button type="button" class="ghost-button" id="healthButton">检测</button>
+          </div>
+          <label>
+            <span>Brain API</span>
+            <input id="apiBase" type="url" spellcheck="false">
+          </label>
+          <div class="inline-fields">
+            <label>
+              <span>设备 ID</span>
+              <input id="deviceId" type="text" value="web-simulator" spellcheck="false">
+            </label>
+            <label>
+              <span>密钥</span>
+              <input id="deviceSecret" type="password" spellcheck="false" autocomplete="off">
+            </label>
+          </div>
+          <div class="inline-fields">
+            <label>
+              <span>触摸</span>
+              <select id="touchInput">
+                <option value="">无</option>
+                <option value="button_a">button_a</option>
+                <option value="button_b">button_b</option>
+                <option value="head">head</option>
+              </select>
+            </label>
+            <label>
+              <span>唤醒</span>
+              <select id="wakeReason">
+                <option value="keyboard">keyboard</option>
+                <option value="button">button</option>
+                <option value="voice">voice</option>
+                <option value="timer">timer</option>
+              </select>
+            </label>
+          </div>
+          <div class="range-row">
+            <label for="batteryInput">电量 <strong id="batteryValue">88%</strong></label>
+            <input id="batteryInput" type="range" min="0" max="100" value="88">
+          </div>
+          <div class="range-row">
+            <label for="ambientInput">光照 <strong id="ambientValue">56</strong></label>
+            <input id="ambientInput" type="range" min="0" max="100" value="56">
+          </div>
+          <label class="checkbox-row">
+            <input id="faceDetected" type="checkbox" checked>
+            <span>检测到人脸</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="speechEnabled" type="checkbox" checked>
+            <span>语音输出</span>
+          </label>
+          <div class="inline-fields speech-fields">
+            <label>
+              <span>声音</span>
+              <select id="speechVoice">
+                <option value="">默认</option>
+              </select>
+            </label>
+            <div class="range-row">
+              <label for="speechRate">语速 <strong id="speechRateValue">1.0x</strong></label>
+              <input id="speechRate" type="range" min="0.7" max="1.4" step="0.1" value="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section response-section">
+          <div class="section-heading">
+            <h2>LLM JSON</h2>
+            <button type="button" class="ghost-button" id="copyJsonButton">复制</button>
+          </div>
+          <pre id="jsonOutput">{}</pre>
+        </div>
+      </section>
+
+      <section class="data-panel memories-panel" aria-label="记忆">
+        <div class="section-heading">
+          <h2>记忆</h2>
+          <button type="button" class="ghost-button" id="refreshMemoryButton">刷新</button>
+        </div>
+        <div class="memory-columns">
+          <div>
+            <h3>召回</h3>
+            <ul id="recalledList" class="data-list empty-list">
+              <li>暂无召回</li>
+            </ul>
+          </div>
+          <div>
+            <h3>保存</h3>
+            <ul id="savedList" class="data-list empty-list">
+              <li>暂无保存</li>
+            </ul>
+          </div>
+        </div>
+        <div class="memory-search">
+          <input id="memoryQuery" type="search" placeholder="搜索长期记忆">
+          <button type="button" class="ghost-button" id="memorySearchButton">搜索</button>
+        </div>
+        <ul id="memorySearchList" class="data-list empty-list">
+          <li>暂无结果</li>
+        </ul>
+      </section>
+
+      <section class="data-panel log-panel" aria-label="交互日志">
+        <div class="section-heading">
+          <h2>交互日志</h2>
+          <button type="button" class="ghost-button" id="refreshLogsButton">刷新</button>
+        </div>
+        <ol id="logList" class="log-list empty-list">
+          <li>暂无日志</li>
+        </ol>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

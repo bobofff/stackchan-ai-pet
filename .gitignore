@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+brain/data/*.db
+brain/data/*.db-shm
+brain/data/*.db-wal
+brain/data/tts/
+brain/logs/**/*.log
+.pio/
+dist/
+build/
