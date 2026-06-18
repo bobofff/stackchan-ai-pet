@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -27,6 +28,33 @@ class FailingAsyncClient:
 
     async def post(self, *args, **kwargs):
         raise RuntimeError("LLM unavailable during test")
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self.payload
+
+
+class SuccessfulAsyncClient:
+    payload = {}
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+    async def post(self, *args, **kwargs):
+        return FakeResponse(self.payload)
 
 
 class TurnApiCorePathsTest(unittest.TestCase):
@@ -143,6 +171,66 @@ class TurnApiCorePathsTest(unittest.TestCase):
         self.assertEqual(body["expression"], "thinking")
         self.assertEqual(body["motion"], "look_up")
         self.assertTrue(body["thought"].startswith("LLM failed, used fallback: RuntimeError"))
+
+    def test_turn_normalizes_llm_payload_before_validation(self):
+        settings = self._settings(
+            LLM_BASE_URL="https://llm.example.test",
+            LLM_API_KEY="test-key",
+        )
+        headers = {"X-Device-Secret": "test-secret"}
+        content = {
+            "say": "我把这条记好了。",
+            "expression": "excited",
+            "motion": "spin",
+            "duration_ms": 999999,
+            "thought": 123,
+            "saved_memories": [
+                {
+                    "key": "favorite_drink",
+                    "value": "姜楠喜欢抹茶拿铁",
+                    "tags": "preference",
+                    "importance": 10,
+                },
+                {
+                    "key": "",
+                    "value": "姜楠最近在做 Stack-chan 桌宠",
+                    "tags": [None, "project"],
+                    "importance": -2,
+                },
+                {"key": "empty_value", "importance": 5},
+                "not-a-memory",
+            ],
+        }
+        SuccessfulAsyncClient.payload = {
+            "choices": [{"message": {"content": json.dumps(content, ensure_ascii=False)}}]
+        }
+
+        with patch("app.llm.httpx.AsyncClient", SuccessfulAsyncClient):
+            with self._client(settings) as client:
+                response = client.post(
+                    "/api/v1/turn",
+                    json=self._turn_payload("记一下我的饮料偏好", device_id="normalizing-device"),
+                    headers=headers,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                self.assertEqual(body["say"], "我把这条记好了。")
+                self.assertEqual(body["expression"], "neutral")
+                self.assertEqual(body["motion"], "idle")
+                self.assertEqual(body["duration_ms"], 30000)
+                self.assertEqual(body["thought"], "123")
+                self.assertEqual(len(body["saved_memories"]), 2)
+                self.assertEqual(body["saved_memories"][0]["key"], "favorite_drink")
+                self.assertEqual(body["saved_memories"][0]["tags"], ["preference"])
+                self.assertEqual(body["saved_memories"][0]["importance"], 5)
+                self.assertEqual(body["saved_memories"][1]["key"], "llm_memory")
+                self.assertEqual(body["saved_memories"][1]["tags"], ["project"])
+                self.assertEqual(body["saved_memories"][1]["importance"], 1)
+
+                search = client.get("/api/v1/memories/search", params={"q": "Stack-chan", "limit": 5})
+                self.assertEqual(search.status_code, 200)
+                self.assertEqual(search.json()[0]["value"], "姜楠最近在做 Stack-chan 桌宠")
 
     def test_turn_includes_tts_audio_url_when_synthesized(self):
         settings = self._settings(TTS_ENABLED=True)
